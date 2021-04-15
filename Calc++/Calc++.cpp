@@ -4,7 +4,7 @@
 
 int main()
 {
-    const std::string program = "5 + 3 * 2";
+    const std::string program = "x = 2; y = 4; z = x;";
 
     Calculator calc;
 

@@ -5,9 +5,10 @@
 #include <unordered_map>
 #include <functional>
 #include <string>
+#include <algorithm>
 
 #define IN_RANGE(a,z) (*cur_char >= a && *cur_char <= z)
-#define EXPECT(vc, v) if(*c != vc) throw std::string("Expected #v but found character '") + *c + "'"; next_char();
+#define EXPECT_CHAR(c) if(*cur_char != c) throw std::string("Expected '") + c + std::string("' but found character '") + *cur_char + "'"; next_char();
 
 class Calculator
 {
@@ -41,7 +42,7 @@ public:
 
         try
         {
-            scan_expr ();
+            scan_stmt ();
         }
         catch (const std::string & ex)
         {
@@ -52,7 +53,13 @@ public:
             throw std::string("[Runtime] Unknown exception") + " at " + get_location ();
         }
 
-        return stack_pop ();
+        try {
+            return stack_pop ();
+        }
+        catch (...)
+        {
+            return 0;
+        }
     }
 
     long long get_variable (const char* identifier)
@@ -141,6 +148,9 @@ private:
 
     long long scan_literal ()
     {
+#ifdef _DEBUG
+        std::cout << "[literal]" << std::endl;
+#endif
         if (!IN_RANGE ('0', '9'))
             throw std::string ("Expected numeric literal but found '") + *cur_char + "'";
 
@@ -156,15 +166,31 @@ private:
 
     void scan_atom ()
     {
+        remove_whitespace ();
+
         if (is_identifier ())
         {
-            auto ident = collect_identifier ().c_str ();
+#ifdef _DEBUG
+            std::cout << "[var ref]" << std::endl;
+#endif
 
-            auto search = variable_map.find (ident);
+            auto ident = collect_identifier ();
+
+            auto search = variable_map.find (ident.c_str());
             if (search == variable_map.end ())
-                throw std::string ("Undeclared variable '") + *cur_char + "'";
+                throw std::string ("Undeclared variable '") + ident + "'";
 
             stack_push (stack[search->second]);
+        }
+        else if (*cur_char == '(')
+        {
+            next_char ();
+
+            scan_expr ();
+
+            remove_whitespace ();
+
+            EXPECT_CHAR (')');
         }
         else
             scan_literal ();
@@ -181,9 +207,13 @@ private:
             return;
         next_char ();
 
+#ifdef _DEBUG
+        std::cout << "['" << op << "' expr]" << std::endl;
+#endif
+
         remove_whitespace ();
 
-        (this->*lower) ();
+        scan_expr_generic (op1, op2, op1f, op2f, lower);
 
         if (op == op1)
             stack_push (op1f ());
@@ -204,5 +234,53 @@ private:
     void scan_expr ()
     {
         return scan_expr_add_sub ();
+    }
+
+    void scan_stmt ()
+    {
+        remove_whitespace ();
+
+        while (is_identifier ())
+        {
+            auto ident = collect_identifier ();
+
+            auto ident_upper = ident;
+            std::transform (ident_upper.begin (), ident_upper.end (), ident_upper.begin (), ::toupper);
+
+            if (ident_upper == "OUT")
+            {
+#ifdef _DEBUG
+                std::cout << "[out]" << std::endl;
+#endif
+
+                remove_whitespace ();
+                scan_expr ();
+                throw stack_pop ();
+            }
+            else if (ident_upper == "PRINT")
+            {
+#ifdef _DEBUG        
+                std::cout << "[print]" << std::endl;
+#endif
+                remove_whitespace ();
+                scan_expr ();
+                std::cout << stack_pop ();
+            }
+            else
+            {
+#ifdef _DEBUG
+                std::cout << "['var decl]" << std::endl;
+#endif
+                remove_whitespace ();
+                EXPECT_CHAR ('=');
+                remove_whitespace ();
+                scan_expr ();
+                variable_map[ident.c_str ()] = stack.size () - 1;
+            }
+
+            remove_whitespace ();
+            EXPECT_CHAR (';');
+            remove_whitespace ();
+        }
     }
 };
