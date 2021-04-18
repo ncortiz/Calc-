@@ -6,6 +6,7 @@
 #include <functional>
 #include <string>
 #include <algorithm>
+#include <chrono>
 
 #define IN_RANGE(a,z) (*cur_char >= a && *cur_char <= z)
 #define EXPECT_CHAR(c) if(*cur_char != c) throw std::string("Expected '") + c + std::string("' but found character '") + *cur_char + "'"; next_char();
@@ -13,483 +14,648 @@
 class Calculator
 {
 private:
-    const char* program = 0;
-    const char* cur_char = 0;
-    size_t sz_program = 0;
-    size_t sz_stack = 1000;
-    size_t ln = 0, col = 0;
-    std::vector<long long> stack;
-    std::map<std::string, size_t> variable_map;
+	const char* program = 0;
+	const char* cur_char = 0;
+	size_t sz_program = 0;
+	size_t sz_stack = 1000;
+	size_t ln = 0, col = 0;
+	std::vector<long long> stack;
+	std::map<std::string, size_t> variable_map;
+	std::chrono::steady_clock::time_point begin;
 
 public:
 
-    Calculator()
-    {}
+	Calculator ()
+	{}
 
-    void Clear()
-    {
-        ln = col = 0;
-        stack.clear();
-        variable_map.clear();
-    }
+	void Clear ()
+	{
+		ln = col = 0;
+		stack.clear ();
+		variable_map.clear ();
+	}
 
-    void Scan(const std::string& program, const size_t& sz_stack = 1000)
-    {
-        this->program = program.c_str();
-        this->cur_char = this->program;
-        this->sz_program = program.size();
-        this->sz_stack = sz_stack;
+	void Scan (const std::string& program, const size_t& sz_stack = 1000)
+	{
+		this->program = program.c_str ();
+		this->cur_char = this->program;
+		this->sz_program = program.size ();
+		this->sz_stack = sz_stack;
 
-        try
-        {
-            scan_stmt();
-        }
-        catch (const std::string& ex)
-        {
-            throw std::string("[Runtime] Exception: ") + ex + " at " + get_location();
-        }
-        catch (const long long& ret_v)
-        {
-            throw;
-        }
-        catch (...)
-        {
-            throw std::string("[Runtime] Unknown exception") + " at " + get_location();
-        }
-    }
+		try
+		{
+			begin = std::chrono::steady_clock::now ();
+			scan_stmt ();
+		}
+		catch (const std::string & ex)
+		{
+			throw std::string ("[Runtime] Exception: ") + ex + " at " + get_location ();
+		}
+		catch (const long long& ret_v)
+		{
+			throw;
+		}
+		catch (...)
+		{
+			throw std::string ("[Runtime] Unknown exception") + " at " + get_location ();
+		}
+	}
 
-    long long get_variable(const char* identifier)
-    {
-        auto search = variable_map.find(identifier);
-        if (search == variable_map.end())
-            throw std::string("Could not find variable '") + *cur_char + "'";
+	long long get_variable (const char* identifier)
+	{
+		auto search = variable_map.find (identifier);
+		if (search == variable_map.end ())
+			throw std::string ("Could not find variable '") + *cur_char + "'";
 
-        return stack[search->second];
-    }
+		return stack[search->second];
+	}
 
-    void set_variable(const char* identifier, long long value)
-    {
-        stack_push(value);
-        variable_map[identifier] = stack.size();
-    }
+	void set_variable (const char* identifier, long long value)
+	{
+		stack_push (value);
+		variable_map[identifier] = stack.size ();
+	}
 
 private:
 
-    std::string get_location()
-    {
-        return std::string("[Ln:") + std::to_string(ln) +
-            ", Col : " + std::to_string(col) +
-            ", Ch : " + std::to_string(cur_char - program) + "]";
-    }
+	std::string get_location ()
+	{
+		return std::string ("[Ln:") + std::to_string (ln) +
+			", Col : " + std::to_string (col) +
+			", Ch : " + std::to_string (cur_char - program) + "]";
+	}
 
-    void remove_body()
-    {
-        int count = 0;
-        do
-        {
-            if (*cur_char == '{')
-                count++;
-            else if (*cur_char == '}')
-                count--;
-            next_char();
-        } while (count > 0);
-    }
+	void remove_body ()
+	{
+		int count = 0;
+		do
+		{
+			if (*cur_char == '{')
+				count++;
+			else if (*cur_char == '}')
+				count--;
+			next_char ();
+		} while (count > 0);
+	}
 
-    void remove_whitespace()
-    {
-        while (*cur_char == ' ' || *cur_char == '\n' || *cur_char == '\t')
-        {
-            if (*cur_char == '\n')
-            {
-                ln++;
-                col = 0;
-            }
-            else
-                col += *cur_char == '\t' ? 5 : 1;
+	void remove_whitespace ()
+	{
+		while (*cur_char == ' ' || *cur_char == '\n' || *cur_char == '\t')
+		{
+			if (*cur_char == '\n')
+			{
+				ln++;
+				col = 0;
+			}
+			else
+				col += *cur_char == '\t' ? 5 : 1;
 
-            next_char();
-        }
-    }
+			next_char ();
+		}
+	}
 
-    bool is_identifier()
-    {
-        return IN_RANGE('a', 'z') || IN_RANGE('A', 'Z') || *cur_char == '_';
-    }
+	bool is_identifier ()
+	{
+		return IN_RANGE ('a', 'z') || IN_RANGE ('A', 'Z') || *cur_char == '_';
+	}
 
-    long long stack_pop()
-    {
-        if (stack.empty())
-            throw std::string("Stack is empty");
+	long long stack_pop ()
+	{
+		if (stack.empty ())
+			throw std::string ("Stack is empty");
 
-        auto v = stack.back();
-        stack.pop_back();
-        return v;
-    }
+		auto v = stack.back ();
+		stack.pop_back ();
+		return v;
+	}
 
-    long long stack_push(long long value)
-    {
-        if (stack.size() >= sz_stack)
-            throw std::string("Stack overflow");
-        stack.push_back(value);
-    }
+	long long stack_push (long long value)
+	{
+		if (stack.size () >= sz_stack)
+			throw std::string ("Stack overflow");
+		stack.push_back (value);
+	}
 
-    std::string collect_identifier()
-    {
-        std::string ident = "";
-        while (is_identifier() || IN_RANGE(0, 9))
-        {
-            ident += *cur_char;
-            next_char();
-        }
-        return ident;
-    }
+	std::string collect_identifier ()
+	{
+		std::string ident = "";
+		while (is_identifier () || IN_RANGE (0, 9))
+		{
+			ident += *cur_char;
+			next_char ();
+		}
+		return ident;
+	}
 
-    void next_char()
-    {
-        if (program == 0)
-            throw std::string("Program is NULL");
+	void next_char ()
+	{
+		if (program == 0)
+			throw std::string ("Program is NULL");
 
-        if ((cur_char - program) >= sz_program)
-            throw std::string("Unexpected EOF");
+		if ((cur_char - program) >= sz_program)
+			throw std::string ("Unexpected EOF");
 
-        cur_char++;
-    }
+		cur_char++;
+	}
 
-    long long scan_literal()
-    {
+	long long scan_literal ()
+	{
 #ifdef _DEBUG
-        std::cout << "[literal]" << std::endl;
+		std::cout << "[literal]" << std::endl;
 #endif
-        if (!IN_RANGE('0', '9'))
-            throw std::string("Expected numeric literal but found '") + *cur_char + "'";
+		if (!IN_RANGE ('0', '9'))
+			throw std::string ("Expected numeric literal but found '") + *cur_char + "'";
 
-        long long acc = 0;
-        for (; IN_RANGE('0', '9'); next_char())
-        {
-            acc = (acc * 10) + (*cur_char - '0');
-            col++;
-        }
+		long long acc = 0;
+		for (; IN_RANGE ('0', '9'); next_char ())
+		{
+			acc = (acc * 10) + (*cur_char - '0');
+			col++;
+		}
 
-        stack_push(acc);
-    }
+		stack_push (acc);
+	}
 
-    void scan_atom()
-    {
-        remove_whitespace();
+	void scan_atom ()
+	{
+		remove_whitespace ();
 
-        if (is_identifier())
-        {
-            auto ident = collect_identifier();
+		if (is_identifier ())
+		{
+			auto ident = collect_identifier ();
 
-            auto ident_upper = ident;
-            std::transform(ident_upper.begin(), ident_upper.end(), ident_upper.begin(), ::toupper);
+			auto ident_upper = ident;
+			std::transform (ident_upper.begin (), ident_upper.end (), ident_upper.begin (), ::toupper);
 
-            if (ident_upper == "SQRT")
-            {
+			if (ident_upper == "SQRT")
+			{
 #ifdef _DEBUG
-                std::cout << "[sqrt]" << std::endl;
+				std::cout << "[sqrt]" << std::endl;
 #endif
-                scan_expr();
-                stack_push(sqrt(stack_pop()));
-            }
-            else if (ident_upper == "NOT")
-            {
+				scan_expr ();
+				stack_push (sqrt (stack_pop ()));
+			}
+			else if (ident_upper == "NOT")
+			{
 #ifdef _DEBUG
-                std::cout << "[not]" << std::endl;
-#endif
-
-                scan_expr();
-                auto v = stack_pop();
-                stack_push(v != 0 ? 0 : 1);
-            }
-            else
-            {
-#ifdef _DEBUG
-                std::cout << "[var ref '" << ident << "']" << std::endl;
+				std::cout << "[not]" << std::endl;
 #endif
 
-                std::map<std::string, size_t>::iterator search = variable_map.find(ident);
-                if (search == variable_map.end())
-                    throw std::string("Undeclared variable '") + ident + "'";
-
-                stack_push(stack[search->second]);
-            }
-        }
-        else if (*cur_char == '(')
-        {
-            next_char();
-
-            scan_expr();
-
-            remove_whitespace();
-
-            EXPECT_CHAR(')');
-        }
-        else
-            scan_literal();
-    }
-
-    void scan_expr_generic(char op1, char op2, char op3, char op4, std::function<long long(void)> op1f, std::function<long long(void)> op2f, std::function<long long(void)> op3f, std::function<long long(void)> op4f, void(Calculator::* lower)())
-    {
-        (this->*lower) ();
-
-        remove_whitespace();
-
-        char op = *cur_char;
-        if (op != op1 && op != op2 && op != op3 && op != op4)
-            return;
-        next_char();
-
+				scan_expr ();
+				auto v = stack_pop ();
+				stack_push (v != 0 ? 0 : 1);
+			}
+			else if (ident_upper == "TIME")
+			{
 #ifdef _DEBUG
-        std::cout << "['" << op << "' expr]" << std::endl;
+				std::cout << "[time]" << std::endl;
+#endif
+				std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now ();
+				stack_push (std::chrono::duration_cast<std::chrono::nanoseconds>(now-begin).count ());
+			}
+			else
+			{
+#ifdef _DEBUG
+				std::cout << "[var ref '" << ident << "']" << std::endl;
 #endif
 
-        remove_whitespace();
+				std::map<std::string, size_t>::iterator search = variable_map.find (ident);
+				if (search == variable_map.end ())
+					throw std::string ("Undeclared variable '") + ident + "'";
 
-        scan_expr_generic(op1, op2, op3, op4, op1f, op2f, op3f, op4f, lower);
+				stack_push (stack[search->second]);
+			}
+		}
+		else if (*cur_char == '(')
+		{
+			next_char ();
 
-        if (op == op1)
-            stack_push(op1f());
-        else if (op == op2)
-            stack_push(op2f());
-        else if (op == op3)
-            stack_push(op3f());
-        else if (op == op4)
-            stack_push(op4f());
-    }
+			scan_expr ();
 
-    void scan_expr_generic(char op1, char op2, char op3, std::function<long long(void)> op1f, std::function<long long(void)> op2f, std::function<long long(void)> op3f, void(Calculator::* lower)())
-    {
-        (this->*lower) ();
+			remove_whitespace ();
 
-        remove_whitespace();
+			EXPECT_CHAR (')');
+		}
+		else
+			scan_literal ();
+	}
 
-        char op = *cur_char;
-        if (op != op1 && op != op2 && op != op3)
-            return;
-        next_char();
+#pragma region Generic
+	void scan_expr_generic (char op1, char op2, char op3, char op4, std::function<long long (void)> op1f, std::function<long long (void)> op2f, std::function<long long (void)> op3f, std::function<long long (void)> op4f, void(Calculator::* lower)())
+	{
+		(this->*lower) ();
 
-#ifdef _DEBUG
-        std::cout << "['" << op << "' expr]" << std::endl;
-#endif
+		remove_whitespace ();
 
-        remove_whitespace();
-
-        scan_expr_generic(op1, op2, op3, op1f, op2f, op3f, lower);
-
-        if (op == op1)
-            stack_push(op1f());
-        else if (op == op2)
-            stack_push(op2f());
-        else if (op == op3)
-            stack_push(op3f());
-    }
-
-    void scan_expr_generic(char op1, char op2, std::function<long long(void)> op1f, std::function<long long(void)> op2f, void(Calculator::* lower)())
-    {
-        (this->*lower) ();
-
-        remove_whitespace();
-
-        char op = *cur_char;
-        if (op != op1 && op != op2)
-            return;
-        next_char();
+		char op = *cur_char;
+		if (op != op1 && op != op2 && op != op3 && op != op4)
+			return;
+		next_char ();
 
 #ifdef _DEBUG
-        std::cout << "['" << op << "' expr]" << std::endl;
+		std::cout << "['" << op << "' expr]" << std::endl;
 #endif
 
-        remove_whitespace();
+		remove_whitespace ();
 
-        scan_expr_generic(op1, op2, op1f, op2f, lower);
+		scan_expr_generic (op1, op2, op3, op4, op1f, op2f, op3f, op4f, lower);
 
-        if (op == op1)
-            stack_push(op1f());
-        else
-            stack_push(op2f());
-    }
+		if (op == op1)
+			stack_push (op1f ());
+		else if (op == op2)
+			stack_push (op2f ());
+		else if (op == op3)
+			stack_push (op3f ());
+		else if (op == op4)
+			stack_push (op4f ());
+	}
 
-    void scan_expr_mul_div()
-    {
-        scan_expr_generic('*', '/', '%',
-            [&]() { return stack_pop() * stack_pop(); },
-            [&]() {
-                auto b = stack_pop();
-                auto a = stack_pop();
-                return a / b;
-            },
-            [&]() {
-                auto b = stack_pop();
-                auto a = stack_pop();
-                return a % b;
-            }
-            , &Calculator::scan_atom);
-    }
+	void scan_expr_generic (char op1, char op2, char op3, std::function<long long (void)> op1f, std::function<long long (void)> op2f, std::function<long long (void)> op3f, void(Calculator::* lower)())
+	{
+		(this->*lower) ();
 
-    void scan_expr_add_sub()
-    {
-        scan_expr_generic('+', '-',
-            [&]() { return stack_pop() + stack_pop(); },
-            [&]() {
-                auto b = stack_pop();
-                auto a = stack_pop();
-                return a - b;
-            }, &Calculator::scan_expr_mul_div);
-    }
+		remove_whitespace ();
 
-    void scan_expr_relational()
-    {
-        scan_expr_generic('<=', '>=', '<', '>',
-            [&]() {
-                auto b = stack_pop();
-                auto a = stack_pop();
-                return a <= b;
-            },
-            [&]() {
-                auto b = stack_pop();
-                auto a = stack_pop();
-                return a >= b;
-            },
-                [&]() {
-                auto b = stack_pop();
-                auto a = stack_pop();
-                return a < b;
-            },
-                [&]() {
-                auto b = stack_pop();
-                auto a = stack_pop();
-                return a > b;
-            }, &Calculator::scan_expr_add_sub);
-    }
+		char op = *cur_char;
+		if (op != op1 && op != op2 && op != op3)
+			return;
+		next_char ();
 
-    void scan_expr_equality()
-    {
-        scan_expr_generic('=', '!',
-            [&]() {
-                auto b = stack_pop();
-                auto a = stack_pop();
-                return a == b;
-            },
-            [&]() {
-                auto b = stack_pop();
-                auto a = stack_pop();
-                return a != b;
-            }, &Calculator::scan_expr_relational);
-    }
-
-    void scan_expr()
-    {
-        return scan_expr_equality();
-    }
-
-    void scan_stmt()
-    {
-        remove_whitespace();
-
-        while (is_identifier())
-        {
-            auto ident = collect_identifier();
-
-            auto ident_upper = ident;
-            std::transform(ident_upper.begin(), ident_upper.end(), ident_upper.begin(), ::toupper);
-
-            if (ident_upper == "OUT")
-            {
 #ifdef _DEBUG
-                std::cout << "[out]" << std::endl;
+		std::cout << "['" << op << "' expr]" << std::endl;
 #endif
 
-                remove_whitespace();
-                scan_expr();
-                throw stack_pop();
-            }
-            else if (ident_upper == "PRINT")
-            {
+		remove_whitespace ();
+
+		scan_expr_generic (op1, op2, op3, op1f, op2f, op3f, lower);
+
+		if (op == op1)
+			stack_push (op1f ());
+		else if (op == op2)
+			stack_push (op2f ());
+		else if (op == op3)
+			stack_push (op3f ());
+	}
+
+	void scan_expr_generic (char op1, char op2, std::function<long long (void)> op1f, std::function<long long (void)> op2f, void(Calculator::* lower)())
+	{
+		(this->*lower) ();
+
+		remove_whitespace ();
+
+		char op = *cur_char;
+		if (op != op1 && op != op2)
+			return;
+		next_char ();
+
+#ifdef _DEBUG
+		std::cout << "['" << op << "' expr]" << std::endl;
+#endif
+
+		remove_whitespace ();
+
+		scan_expr_generic (op1, op2, op1f, op2f, lower);
+
+		if (op == op1)
+			stack_push (op1f ());
+		else
+			stack_push (op2f ());
+	}
+
+	void scan_expr_generic (std::string op1, std::string op2, char op3, char op4, std::function<long long (void)> op1f, std::function<long long (void)> op2f, std::function<long long (void)> op3f, std::function<long long (void)> op4f, void(Calculator::* lower)())
+	{
+		(this->*lower) ();
+
+		remove_whitespace ();
+
+		std::string op = "";
+
+		char first_char = *cur_char;
+		if (*cur_char != op1[0] && *cur_char != op2[0] && *cur_char != op3 && *cur_char != op4)
+			return;
+		op += *cur_char;
+		next_char ();
+		if (*cur_char != op1[1] && *cur_char != op2[1] && (first_char == op3 || first_char == op4))
+		{
+			next_char ();
+
+#ifdef _DEBUG
+			std::cout << "['" << pchar << "' expr]" << std::endl;
+#endif
+
+			remove_whitespace ();
+
+			scan_expr_generic (op1, op2, op3, op4, op1f, op2f, op3f, op4f, lower);
+
+			if (first_char == op3)
+				stack_push (op3f ());
+			else
+				stack_push (op4f ());
+
+			return;
+		}
+		else if(*cur_char != op1[1] && *cur_char != op2[1])
+			throw std::string ("Expected '") + op1[1] + "' or '" + op2[1] + "' but found character '" + *cur_char + "'";
+
+		op += *cur_char;
+		next_char ();
+
+#ifdef _DEBUG
+		std::cout << "['" << op << "' expr]" << std::endl;
+#endif
+
+		remove_whitespace ();
+
+		scan_expr_generic (op1, op2, op3, op4, op1f, op2f, op3f, op4f, lower);
+
+		if (op == op1)
+			stack_push (op1f ());
+		else
+			stack_push (op2f ());
+
+	}
+
+	void scan_expr_generic (std::string op1, std::string op2, std::string op3, std::string op4, std::function<long long (void)> op1f, std::function<long long (void)> op2f, std::function<long long (void)> op3f, std::function<long long (void)> op4f, void(Calculator::* lower)())
+	{
+		(this->*lower) ();
+
+		remove_whitespace ();
+
+		std::string op = "";
+		if (*cur_char != op1[0] && *cur_char != op2[0] && *cur_char != op3[0] && *cur_char != op4[0])
+			return;
+		op += *cur_char;
+		next_char ();
+		if (*cur_char != op1[1] && *cur_char != op2[1] && *cur_char != op3[1] && *cur_char != op4[1])
+			throw std::string ("Expected '") + op1[1] + "', '" + op2[1] + "' or '" + op3[1] + "' or '" + op4[1] + "' but found character '" + *cur_char + "'";
+
+		op += *cur_char;
+		next_char ();
+
+#ifdef _DEBUG
+		std::cout << "['" << op << "' expr]" << std::endl;
+#endif
+
+		remove_whitespace ();
+
+		scan_expr_generic (op1, op2, op3, op4, op1f, op2f, op3f, op4f, lower);
+
+		if (op == op1)
+			stack_push (op1f ());
+		else if (op == op2)
+			stack_push (op2f ());
+		else if (op == op3)
+			stack_push (op3f ());
+		else
+			stack_push (op4f ());
+	}
+
+	void scan_expr_generic (std::string op1, std::string op2, std::string op3, std::function<long long (void)> op1f, std::function<long long (void)> op2f, std::function<long long (void)> op3f, void(Calculator::* lower)())
+	{
+		(this->*lower) ();
+
+		remove_whitespace ();
+
+		std::string op = "";
+		if (*cur_char != op1[0] && *cur_char != op2[0] && *cur_char != op3[0])
+			return;
+		op += *cur_char;
+		next_char ();
+		if (*cur_char != op1[1] && *cur_char != op2[1] && *cur_char != op3[1])
+			throw std::string ("Expected '") + op1[1] + "', '" + op2[1] + "' or '" + op3[1] + "' but found character '" + *cur_char + "'";
+
+		op += *cur_char;
+		next_char ();
+
+#ifdef _DEBUG
+		std::cout << "['" << op << "' expr]" << std::endl;
+#endif
+
+		remove_whitespace ();
+
+		scan_expr_generic (op1, op2, op3, op1f, op2f, op3f, lower);
+
+		if (op == op1)
+			stack_push (op1f ());
+		else if (op == op2)
+			stack_push (op2f ());
+		else
+			stack_push (op3f ());
+	}
+
+	void scan_expr_generic (std::string op1, std::string op2, std::function<long long (void)> op1f, std::function<long long (void)> op2f, void(Calculator::* lower)())
+	{
+		(this->*lower) ();
+
+		remove_whitespace ();
+
+		std::string op = "";
+		if (*cur_char != op1[0] && *cur_char != op2[0])
+			return;
+		op += *cur_char;
+		next_char ();
+		if (*cur_char != op1[1] && *cur_char != op2[1])
+			throw std::string ("Expected '") + op1[1] + "' or '" + op[1] + "' but found character '" + *cur_char + "'";
+
+		op += *cur_char;
+		next_char ();
+
+#ifdef _DEBUG
+		std::cout << "['" << op << "' expr]" << std::endl;
+#endif
+
+		remove_whitespace ();
+
+		scan_expr_generic (op1, op2, op1f, op2f, lower);
+
+		if (op == op1)
+			stack_push (op1f ());
+		else
+			stack_push (op2f ());
+	}
+
+#pragma endregion Generic
+
+	void scan_expr_mul_div ()
+	{
+		scan_expr_generic ('*', '/', '%',
+			[&]() { return stack_pop () * stack_pop (); },
+			[&]() {
+				auto b = stack_pop ();
+				auto a = stack_pop ();
+				return a / b;
+			},
+			[&]() {
+				auto b = stack_pop ();
+				auto a = stack_pop ();
+				return a % b;
+			}
+			, &Calculator::scan_atom);
+	}
+
+	void scan_expr_add_sub ()
+	{
+		scan_expr_generic ('+', '-',
+			[&]() { return stack_pop () + stack_pop (); },
+			[&]() {
+				auto b = stack_pop ();
+				auto a = stack_pop ();
+				return a - b;
+			}, &Calculator::scan_expr_mul_div);
+	}
+
+	void scan_expr_relational ()
+	{
+		scan_expr_generic ("<=", ">=", '<', '>',
+			[&]() {
+				auto b = stack_pop ();
+				auto a = stack_pop ();
+				return a <= b;
+			},
+			[&]() {
+				auto b = stack_pop ();
+				auto a = stack_pop ();
+				return a >= b;
+			},
+				[&]() {
+				auto b = stack_pop ();
+				auto a = stack_pop ();
+				return a < b;
+			},
+				[&]() {
+				auto b = stack_pop ();
+				auto a = stack_pop ();
+				return a > b;
+			}, &Calculator::scan_expr_add_sub);
+	}
+
+	void scan_expr_equality ()
+	{
+		scan_expr_generic ("==", "!=",
+			[&]() {
+				auto b = stack_pop ();
+				auto a = stack_pop ();
+				return a == b;
+			},
+			[&]() {
+				auto b = stack_pop ();
+				auto a = stack_pop ();
+				return a != b;
+			}, &Calculator::scan_expr_relational);
+	}
+
+	void scan_expr ()
+	{
+		return scan_expr_equality ();
+	}
+
+	void scan_stmt ()
+	{
+		remove_whitespace ();
+
+		while (is_identifier ())
+		{
+			auto ident = collect_identifier ();
+
+			auto ident_upper = ident;
+			std::transform (ident_upper.begin (), ident_upper.end (), ident_upper.begin (), ::toupper);
+
+			if (ident_upper == "OUT")
+			{
+#ifdef _DEBUG
+				std::cout << "[out]" << std::endl;
+#endif
+
+				remove_whitespace ();
+				scan_expr ();
+				throw stack_pop ();
+			}
+			else if (ident_upper == "PRINT")
+			{
 #ifdef _DEBUG        
-                std::cout << "[print]" << std::endl;
+				std::cout << "[print]" << std::endl;
 #endif
-                remove_whitespace();
-                scan_expr();
-                std::cout << stack_pop() << std::endl;
-            }
-            else if (ident_upper == "IF")
-            {
+				remove_whitespace ();
+				scan_expr ();
+				std::cout << stack_pop () << std::endl;
+			}
+			else if (ident_upper == "IF")
+			{
 #ifdef _DEBUG        
-                std::cout << "[if]" << std::endl;
+				std::cout << "[if]" << std::endl;
 #endif
-                remove_whitespace();
+				remove_whitespace ();
 
-                scan_expr();
-                auto cond = stack_pop();
+				scan_expr ();
+				auto cond = stack_pop ();
 
-                if (cond != 0)
-                {
-                    remove_whitespace();
-                    EXPECT_CHAR('{');
+				if (cond != 0)
+				{
+					remove_whitespace ();
+					EXPECT_CHAR ('{');
 
-                    scan_stmt();
+					scan_stmt ();
 
-                    remove_whitespace();
-                    EXPECT_CHAR('}');
-                }
-                else
-                    remove_body();
+					remove_whitespace ();
+					EXPECT_CHAR ('}');
+				}
+				else
+					remove_body ();
 
-            }
-            else if (ident_upper == "WHILE")
-            {
+			}
+			else if (ident_upper == "WHILE")
+			{
 #ifdef _DEBUG        
-                std::cout << "[while]" << std::endl;
+				std::cout << "[while]" << std::endl;
 #endif
-                auto start = cur_char;
+				auto start = cur_char;
 
-                remove_whitespace();
-                scan_expr();
-                auto cond = stack_pop();
-                const char* end = cur_char;
+				remove_whitespace ();
+				scan_expr ();
+				auto cond = stack_pop ();
+				const char* end = cur_char;
 
-                if (cond == 0)
-                {
-                    remove_body();
-                    return;
-                }
+				if (cond == 0)
+				{
+					remove_body ();
+					return;
+				}
 
-                while (cond != 0)
-                {
-                    remove_whitespace();
-                    EXPECT_CHAR('{');
+				while (cond != 0)
+				{
+					remove_whitespace ();
+					EXPECT_CHAR ('{');
 
-                    scan_stmt();
+					scan_stmt ();
 
-                    remove_whitespace();
-                    EXPECT_CHAR('}');
+					remove_whitespace ();
+					EXPECT_CHAR ('}');
 
-                    end = cur_char;
-                    cur_char = start;
-                    remove_whitespace();
-                    scan_expr();
-                    cond = stack_pop();
-                }
+					end = cur_char;
+					cur_char = start;
+					remove_whitespace ();
+					scan_expr ();
+					cond = stack_pop ();
+				}
 
-                cur_char = end;
+				cur_char = end;
 
-            }
-            else
-            {
-                remove_whitespace();
-                EXPECT_CHAR('=');
-                remove_whitespace();
-                scan_expr();
-                variable_map[ident] = stack.size() - 1;
+			}
+			else
+			{
+				remove_whitespace ();
+				EXPECT_CHAR ('=');
+				remove_whitespace ();
+				scan_expr ();
+				variable_map[ident] = stack.size () - 1;
 #ifdef _DEBUG
-                std::cout << "[var decl '" << ident << "']" << std::endl;
+				std::cout << "[var decl '" << ident << "']" << std::endl;
 #endif
-            }
+			}
 
-            remove_whitespace();
-            EXPECT_CHAR(';');
-            remove_whitespace();
-        }
-    }
+			remove_whitespace ();
+			EXPECT_CHAR (';');
+			remove_whitespace ();
+		}
+	}
 };
