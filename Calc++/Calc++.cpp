@@ -4,20 +4,22 @@
 
 int main()
 {
-    const std::string program = "x = 2; y = 4; z = x;";
+    const std::string program = "x = 5; while 1-x { print x; x = x - 1; };";
 
     Calculator calc;
 
     try
     {
-        auto v = calc.Scan (program);
-        std::cout << "Return value is " << v << std::endl;
-        std::cin.get ();
+        calc.Scan (program);
     }
     catch (const std::string &ex)
     {
         std::cerr << ex << std::endl;
         return -1;
+    }
+    catch (const long long& ret_v)
+    {
+        std::cout << "Return value is " << ret_v << std::endl;
     }
     catch (...)
     {
@@ -25,6 +27,8 @@ int main()
         return -1;
     }
 
+    std::cout << "Press any key to exit..." << std::endl;
+    std::cin.get();
 
     return 0;
 }

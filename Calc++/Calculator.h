@@ -2,7 +2,7 @@
 
 #include <iostream>
 #include <vector>
-#include <unordered_map>
+#include <map>
 #include <functional>
 #include <string>
 #include <algorithm>
@@ -19,7 +19,7 @@ private:
     size_t sz_stack = 1000;
     size_t ln = 0, col = 0;
     std::vector<long long> stack;
-    std::unordered_map<const char*, size_t> variable_map;
+    std::map<std::string, size_t> variable_map;
 
 public:
 
@@ -33,7 +33,7 @@ public:
         variable_map.clear ();
     }
 
-    long long Scan (const std::string& program, const size_t& sz_stack = 1000)
+    void Scan (const std::string& program, const size_t& sz_stack = 1000)
     {
         this->program = program.c_str();
         this->cur_char = this->program;
@@ -48,17 +48,13 @@ public:
         {
             throw std::string ("[Runtime] Exception: ") + ex + " at " + get_location ();
         }
+        catch (const long long& ret_v)
+        {
+            throw;
+        }
         catch (...)
         {
             throw std::string("[Runtime] Unknown exception") + " at " + get_location ();
-        }
-
-        try {
-            return stack_pop ();
-        }
-        catch (...)
-        {
-            return 0;
         }
     }
 
@@ -170,15 +166,15 @@ private:
 
         if (is_identifier ())
         {
-#ifdef _DEBUG
-            std::cout << "[var ref]" << std::endl;
-#endif
-
             auto ident = collect_identifier ();
 
-            auto search = variable_map.find (ident.c_str());
+#ifdef _DEBUG
+            std::cout << "[var ref '" << ident << "']" << std::endl;
+#endif
+
+            std::map<std::string, size_t>::iterator search = variable_map.find (ident);
             if (search == variable_map.end ())
-                throw std::string ("Undeclared variable '") + ident + "'";
+                throw std::string ("Undeclared variable '") + ident + "'" ;
 
             stack_push (stack[search->second]);
         }
@@ -194,6 +190,33 @@ private:
         }
         else
             scan_literal ();
+    }
+
+    void scan_expr_generic(char op1, char op2, char op3, std::function<long long(void)> op1f, std::function<long long(void)> op2f, std::function<long long(void)> op3f, void(Calculator::* lower)())
+    {
+        (this->*lower) ();
+
+        remove_whitespace();
+
+        char op = *cur_char;
+        if (op != op1 && op != op2 && op != op3)
+            return;
+        next_char();
+
+#ifdef _DEBUG
+        std::cout << "['" << op << "' expr]" << std::endl;
+#endif
+
+        remove_whitespace();
+
+        scan_expr_generic(op1, op2, op3, op1f, op2f, op3f, lower);
+
+        if (op == op1)
+            stack_push(op1f());
+        else if(op == op2)
+            stack_push(op2f());
+        else if (op == op3)
+            stack_push(op3f());
     }
 
     void scan_expr_generic (char op1, char op2, std::function<long long (void)> op1f, std::function<long long (void)> op2f, void(Calculator::*lower)())
@@ -223,12 +246,30 @@ private:
 
     void scan_expr_mul_div ()
     {
-        scan_expr_generic ('*', '/', [&]() { return stack_pop () * stack_pop (); }, [&]() { return stack_pop () / stack_pop (); }, &Calculator::scan_atom);
+        scan_expr_generic ('*', '/', '%', 
+            [&]() { return stack_pop () * stack_pop (); }, 
+            [&]() {
+                auto b = stack_pop();
+                auto a = stack_pop();
+                return a / b;
+            },
+            [&]() {
+                auto b = stack_pop();
+                auto a = stack_pop();
+                return a % b;
+            }
+        , &Calculator::scan_atom);
     }
 
     void scan_expr_add_sub ()
     {
-        scan_expr_generic ('+', '-', [&]() { return stack_pop () + stack_pop (); }, [&]() { return stack_pop () - stack_pop (); }, &Calculator::scan_expr_mul_div);
+        scan_expr_generic ('+', '-', 
+            [&]() { return stack_pop () + stack_pop (); }, 
+            [&]() {
+                auto b = stack_pop();
+                auto a = stack_pop();
+                return a - b; 
+            }, &Calculator::scan_expr_mul_div);
     }
 
     void scan_expr ()
@@ -264,18 +305,70 @@ private:
 #endif
                 remove_whitespace ();
                 scan_expr ();
-                std::cout << stack_pop ();
+                std::cout << stack_pop () << std::endl;
+            }
+            else if (ident_upper == "IF")
+            {
+#ifdef _DEBUG        
+                std::cout << "[if]" << std::endl;
+#endif
+                remove_whitespace();
+
+                scan_expr();
+                auto cond = stack_pop(); 
+
+                remove_whitespace();
+                EXPECT_CHAR('{');
+
+                if (cond != 0)
+                    scan_stmt();
+              
+                remove_whitespace();
+                EXPECT_CHAR('}');
+            }
+            else if (ident_upper == "WHILE")
+            {
+#ifdef _DEBUG        
+                std::cout << "[while]" << std::endl;
+#endif
+                auto start = cur_char;
+
+                remove_whitespace();
+                scan_expr();
+                auto cond = stack_pop();
+                const char* end = cur_char;
+
+                while (cond > 0)
+                {
+                    remove_whitespace();
+                    EXPECT_CHAR('{');
+
+                    scan_stmt();//TODO PROBLEM WE NEED TO CONSUME ALL AT LEAST ONCE
+                    //THE ONLY THING THAT WOULD WORK WITHOUT THAT IS DO_WHILE's and GOTO with labels
+
+                    remove_whitespace();
+                    EXPECT_CHAR('}');
+
+                    end = cur_char;
+                    cur_char = start;
+                    remove_whitespace();
+                    scan_expr();
+                    cond = stack_pop();
+                }
+
+                cur_char = end;
+                
             }
             else
             {
-#ifdef _DEBUG
-                std::cout << "['var decl]" << std::endl;
-#endif
                 remove_whitespace ();
                 EXPECT_CHAR ('=');
                 remove_whitespace ();
                 scan_expr ();
-                variable_map[ident.c_str ()] = stack.size () - 1;
+                variable_map[ident] = stack.size () - 1;
+#ifdef _DEBUG
+                std::cout << "[var decl '" << ident << "']" << std::endl;
+#endif
             }
 
             remove_whitespace ();
