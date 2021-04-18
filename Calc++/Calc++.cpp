@@ -4,7 +4,7 @@
 
 int main()
 {
-    const std::string program = "x = 5; while 1-x { print x; x = x - 1; };";
+    const std::string program = "x = 25; while x + 1 { if (x % 2) = 0 { print x; }; x = x - 1; };";
 
     Calculator calc;
 

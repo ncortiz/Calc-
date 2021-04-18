@@ -363,9 +363,24 @@ private:
             }, &Calculator::scan_expr_add_sub);
     }
 
+    void scan_expr_equality()
+    {
+        scan_expr_generic('=', '!',
+            [&]() {
+                auto b = stack_pop();
+                auto a = stack_pop();
+                return a == b;
+            },
+            [&]() {
+                auto b = stack_pop();
+                auto a = stack_pop();
+                return a != b;
+            }, &Calculator::scan_expr_relational);
+    }
+
     void scan_expr()
     {
-        return scan_expr_relational();
+        return scan_expr_equality();
     }
 
     void scan_stmt()
