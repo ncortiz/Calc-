@@ -20,7 +20,22 @@ private:
 	size_t sz_stack = 1000;
 	size_t ln = 0, col = 0;
 	std::vector<long long> stack;
-	std::map<std::string, size_t> variable_map;
+	bool return_from_function = false;
+
+	enum type
+	{
+		num,
+		func_ptr
+	};
+
+	enum scope
+	{
+		global,
+		func
+	};
+
+	scope current_scope = scope::global;
+	std::map<std::string, std::pair<size_t, type>> variable_map;
 	std::chrono::steady_clock::time_point begin;
 
 public:
@@ -30,6 +45,7 @@ public:
 
 	void Clear ()
 	{
+		current_scope = scope::global;
 		ln = col = 0;
 		stack.clear ();
 		variable_map.clear ();
@@ -61,21 +77,6 @@ public:
 		}
 	}
 
-	long long get_variable (const char* identifier)
-	{
-		auto search = variable_map.find (identifier);
-		if (search == variable_map.end ())
-			throw std::string ("Could not find variable '") + *cur_char + "'";
-
-		return stack[search->second];
-	}
-
-	void set_variable (const char* identifier, long long value)
-	{
-		stack_push (value);
-		variable_map[identifier] = stack.size ();
-	}
-
 private:
 
 	std::string get_location ()
@@ -85,8 +86,9 @@ private:
 			", Ch : " + std::to_string (cur_char - program) + "]";
 	}
 
-	void remove_body ()
+	void collect_body ()
 	{
+		remove_whitespace ();
 		int count = 0;
 		do
 		{
@@ -94,6 +96,7 @@ private:
 				count++;
 			else if (*cur_char == '}')
 				count--;
+
 			next_char ();
 		} while (count > 0);
 	}
@@ -101,17 +104,7 @@ private:
 	void remove_whitespace ()
 	{
 		while (*cur_char == ' ' || *cur_char == '\n' || *cur_char == '\t')
-		{
-			if (*cur_char == '\n')
-			{
-				ln++;
-				col = 0;
-			}
-			else
-				col += *cur_char == '\t' ? 5 : 1;
-
 			next_char ();
-		}
 	}
 
 	bool is_identifier ()
@@ -155,6 +148,14 @@ private:
 		if ((cur_char - program) >= sz_program)
 			throw std::string ("Unexpected EOF");
 
+		if (*cur_char == '\n')
+		{
+			ln++;
+			col = 0;
+		}
+		else
+			col += *cur_char == '\t' ? 5 : 1;
+
 		cur_char++;
 	}
 
@@ -170,7 +171,6 @@ private:
 		for (; IN_RANGE ('0', '9'); next_char ())
 		{
 			acc = (acc * 10) + (*cur_char - '0');
-			col++;
 		}
 
 		stack_push (acc);
@@ -213,17 +213,77 @@ private:
 				std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now ();
 				stack_push (std::chrono::duration_cast<std::chrono::nanoseconds>(now-begin).count ());
 			}
+			else if (ident_upper == "CALL")
+			{
+#ifdef _DEBUG        
+				std::cout << "[call]" << std::endl;
+#endif
+				remove_whitespace ();
+
+				if (!is_identifier ())
+					throw std::string ("Expected identifier");
+
+				auto ident = collect_identifier ();
+
+				std::map<std::string, std::pair<size_t, type>>::iterator search = variable_map.find (ident);
+				if (search == variable_map.end ())
+					throw std::string ("Undeclared function '") + ident + "'";
+
+				if (search->second.second != type::func_ptr)
+					throw std::string ("Invalid call of variable of type num");
+
+				auto ptr = (const char*)stack[variable_map[ident].first];
+
+				if (ptr < program || ptr >= (program + sz_program))
+					throw std::string ("Invalid function pointer");
+
+				auto start = cur_char;
+				cur_char = ptr;
+				current_scope = scope::func;
+
+				auto buff = variable_map;
+
+				remove_whitespace ();
+				EXPECT_CHAR ('{');
+				scan_stmt ();
+
+				if (!return_from_function)
+				{
+					remove_whitespace ();
+					EXPECT_CHAR ('}');
+				}
+				else
+					return_from_function = false;
+
+				for (auto it = variable_map.cbegin (); it != variable_map.cend ();) //Cleanup variables from prev scope
+				{
+					std::map<std::string, std::pair<size_t, type>>::iterator search = buff.find (it->first);
+
+					if (search == buff.end ())
+					{
+						stack.erase (std::remove (stack.begin (), stack.end (), it->second.first), stack.end ());
+						variable_map.erase (it++);
+					}
+					else
+						it++;
+				}
+
+				cur_char = start;
+			}
 			else
 			{
 #ifdef _DEBUG
 				std::cout << "[var ref '" << ident << "']" << std::endl;
 #endif
 
-				std::map<std::string, size_t>::iterator search = variable_map.find (ident);
+				std::map<std::string, std::pair<size_t, type>>::iterator search = variable_map.find (ident);
 				if (search == variable_map.end ())
 					throw std::string ("Undeclared variable '") + ident + "'";
 
-				stack_push (stack[search->second]);
+				if(search -> second.second != type::num)
+					throw std::string ("Invalid use of variable of type function ptr");
+
+				stack_push (stack[search->second.first]);
 			}
 		}
 		else if (*cur_char == '(')
@@ -570,6 +630,21 @@ private:
 				scan_expr ();
 				throw stack_pop ();
 			}
+			else if (ident_upper == "RET")
+			{
+#ifdef _DEBUG
+				std::cout << "[out]" << std::endl;
+#endif
+
+				if (current_scope != scope::func)
+					throw std::string ("Must be in function scope to return");
+
+				remove_whitespace ();
+				scan_expr ();
+
+				return_from_function = true;
+				return;
+			}
 			else if (ident_upper == "PRINT")
 			{
 #ifdef _DEBUG        
@@ -596,11 +671,14 @@ private:
 
 					scan_stmt ();
 
+					if (return_from_function)
+						return; 
+
 					remove_whitespace ();
 					EXPECT_CHAR ('}');
 				}
 				else
-					remove_body ();
+					collect_body ();
 
 			}
 			else if (ident_upper == "WHILE")
@@ -617,7 +695,7 @@ private:
 
 				if (cond == 0)
 				{
-					remove_body ();
+					collect_body ();
 					return;
 				}
 
@@ -641,13 +719,33 @@ private:
 				cur_char = end;
 
 			}
+			else if (ident_upper == "DEF")
+			{
+#ifdef _DEBUG        
+				std::cout << "[def]" << std::endl;
+#endif
+				remove_whitespace ();
+
+				if (!is_identifier ())
+					throw std::string ("Expected identifier");
+
+				auto ident = collect_identifier ();
+				stack_push ((long long)cur_char);
+				variable_map[ident] = std::make_pair(stack.size () - 1, type::func_ptr);
+
+				collect_body ();
+			}
 			else
 			{
 				remove_whitespace ();
 				EXPECT_CHAR ('=');
 				remove_whitespace ();
 				scan_expr ();
-				variable_map[ident] = stack.size () - 1;
+
+				if (variable_map[ident].second != type::num)
+					throw std::string ("Attempted to reassign value with expr of invalid type");
+
+				variable_map[ident] = std::make_pair(stack.size () - 1, type::num);
 #ifdef _DEBUG
 				std::cout << "[var decl '" << ident << "']" << std::endl;
 #endif
