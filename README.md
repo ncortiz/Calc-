@@ -19,6 +19,7 @@ Current features:
 * ``sqrt`` function: cause why not
 * ``time`` constant: returns time since program start in nanoseconds
 * ``if def while `` all use bodies enclosed in ``{}``
+* functions don't require parenthesis, but they're allowed as they are part of atom: ``( expr )``
 * numeric literals: integers (currently long long type)
 * type safety: only two types for now (num, func. ptr which can only be used to call functions)
 * stack based architecture (only one stack for all variables and symbol table with reference to stack locations) also used for data from recursive descent
