@@ -3,31 +3,12 @@
 #include <fstream>
 #include <sstream>
 
-#include "Calculator.h"
+#include "Calc.h"
+#include "Compiler.h"
 
-int Run (int argc, char **argv)
+int Execute (std::string &program)
 {
-    if (argc < 2)
-    {
-        std::cerr << "Usage: " << argv[0] << " FILENAME" << std::endl;
-        return -1;
-    }
-
-    std::string filename = argv[1];
-    std::string program = "";
-    std::ifstream infile (filename);
-
-    if (infile.bad ())
-    {
-        std::cerr << "Error: could not read file " << filename << std::endl;
-        return -1;
-    }
-
-    std::string line;
-    while (std::getline (infile, line))
-        program += line;
-
-    Calculator calc;
+    Compiler calc;
 
     try
     {
@@ -51,11 +32,39 @@ int Run (int argc, char **argv)
     return 0;
 }
 
+int Run (int argc, char **argv)
+{
+    if (argc < 2)
+    {
+        std::cerr << "Usage: " << argv[0] << " FILENAME" << std::endl;
+        return -1;
+    }
+
+    std::string filename = argv[1];
+    std::string program = "";
+    std::ifstream infile (filename);
+
+    if (infile.bad ())
+    {
+        std::cerr << "Error: could not read file " << filename << std::endl;
+        return -1;
+    }
+
+    std::string line;
+    while (std::getline (infile, line))
+        program += line;
+
+    return Execute(program);
+}
+
 int main(int argc, char **argv)
 {
-    //const std::string program = "x = 25; while (x + 1) >= 0 { if (x % 2) == 1 { print x; }; x = x - 1; }; out time / 1000;";
+    //std::string program = "x = 25; while (x + 1) >= 0 { if (x % 2) == 1 { print x; }; x = x - 1; }; out time / 1000;";
+    std::string program = "x = 25; y = 5 * x; out y + x;";
 
-    auto rv = Run (argc, argv);
+
+    auto rv = Execute (program);
+    //Run (argc, argv);
 
     std::cout << "Press any key to exit..." << std::endl;
     std::cin.get();

@@ -1,4 +1,5 @@
 #pragma once
+#pragma once
 
 #include <iostream>
 #include <vector>
@@ -11,7 +12,7 @@
 #define IN_RANGE(a,z) (*cur_char >= a && *cur_char <= z)
 #define EXPECT_CHAR(c) if(*cur_char != c) throw std::string("Expected '") + c + std::string("' but found character '") + *cur_char + "'"; next_char();
 
-class Calculator
+class Calc
 {
 private:
 	const char* program = 0;
@@ -40,7 +41,8 @@ private:
 
 public:
 
-	Calculator ()
+	Calc
+	()
 	{}
 
 	void Clear ()
@@ -122,7 +124,7 @@ private:
 		return v;
 	}
 
-	long long stack_push (long long value)
+	void stack_push (long long value)
 	{
 		if (stack.size () >= sz_stack)
 			throw std::string ("Stack overflow");
@@ -211,7 +213,7 @@ private:
 				std::cout << "[time]" << std::endl;
 #endif
 				std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now ();
-				stack_push (std::chrono::duration_cast<std::chrono::nanoseconds>(now-begin).count ());
+				stack_push (std::chrono::duration_cast<std::chrono::nanoseconds>(now - begin).count ());
 			}
 			else if (ident_upper == "CALL")
 			{
@@ -280,7 +282,7 @@ private:
 				if (search == variable_map.end ())
 					throw std::string ("Undeclared variable '") + ident + "'";
 
-				if(search -> second.second != type::num)
+				if (search->second.second != type::num)
 					throw std::string ("Invalid use of variable of type function ptr");
 
 				stack_push (stack[search->second.first]);
@@ -301,7 +303,7 @@ private:
 	}
 
 #pragma region Generic
-	void scan_expr_generic (char op1, char op2, char op3, char op4, std::function<long long (void)> op1f, std::function<long long (void)> op2f, std::function<long long (void)> op3f, std::function<long long (void)> op4f, void(Calculator::* lower)())
+	void scan_expr_generic (char op1, char op2, char op3, char op4, std::function<void (void)> op1f, std::function<void (void)> op2f, std::function<void (void)> op3f, std::function<void (void)> op4f, void(Calc::* lower)())
 	{
 		(this->*lower) ();
 
@@ -321,16 +323,16 @@ private:
 		scan_expr_generic (op1, op2, op3, op4, op1f, op2f, op3f, op4f, lower);
 
 		if (op == op1)
-			stack_push (op1f ());
+			op1f ();
 		else if (op == op2)
-			stack_push (op2f ());
+			op2f ();
 		else if (op == op3)
-			stack_push (op3f ());
+			op3f ();
 		else if (op == op4)
-			stack_push (op4f ());
+			op4f ();
 	}
 
-	void scan_expr_generic (char op1, char op2, char op3, std::function<long long (void)> op1f, std::function<long long (void)> op2f, std::function<long long (void)> op3f, void(Calculator::* lower)())
+	void scan_expr_generic (char op1, char op2, char op3, std::function<void (void)> op1f, std::function<void (void)> op2f, std::function<void (void)> op3f, void(Calc::* lower)())
 	{
 		(this->*lower) ();
 
@@ -350,14 +352,14 @@ private:
 		scan_expr_generic (op1, op2, op3, op1f, op2f, op3f, lower);
 
 		if (op == op1)
-			stack_push (op1f ());
+			op1f ();
 		else if (op == op2)
-			stack_push (op2f ());
+			op2f ();
 		else if (op == op3)
-			stack_push (op3f ());
+			op3f ();
 	}
 
-	void scan_expr_generic (char op1, char op2, std::function<long long (void)> op1f, std::function<long long (void)> op2f, void(Calculator::* lower)())
+	void scan_expr_generic (char op1, char op2, std::function<void (void)> op1f, std::function<void (void)> op2f, void(Calc::* lower)())
 	{
 		(this->*lower) ();
 
@@ -377,12 +379,12 @@ private:
 		scan_expr_generic (op1, op2, op1f, op2f, lower);
 
 		if (op == op1)
-			stack_push (op1f ());
+			op1f ();
 		else
-			stack_push (op2f ());
+			op2f ();
 	}
 
-	void scan_expr_generic (std::string op1, std::string op2, char op3, char op4, std::function<long long (void)> op1f, std::function<long long (void)> op2f, std::function<long long (void)> op3f, std::function<long long (void)> op4f, void(Calculator::* lower)())
+	void scan_expr_generic (std::string op1, std::string op2, char op3, char op4, std::function<void (void)> op1f, std::function<void (void)> op2f, std::function<void (void)> op3f, std::function<void (void)> op4f, void(Calc::* lower)())
 	{
 		(this->*lower) ();
 
@@ -400,7 +402,7 @@ private:
 			next_char ();
 
 #ifdef _DEBUG
-			std::cout << "['" << pchar << "' expr]" << std::endl;
+			std::cout << "['" << first_char << "' expr]" << std::endl;
 #endif
 
 			remove_whitespace ();
@@ -408,13 +410,13 @@ private:
 			scan_expr_generic (op1, op2, op3, op4, op1f, op2f, op3f, op4f, lower);
 
 			if (first_char == op3)
-				stack_push (op3f ());
+				op3f ();
 			else
-				stack_push (op4f ());
+				op4f ();
 
 			return;
 		}
-		else if(*cur_char != op1[1] && *cur_char != op2[1])
+		else if (*cur_char != op1[1] && *cur_char != op2[1])
 			throw std::string ("Expected '") + op1[1] + "' or '" + op2[1] + "' but found character '" + *cur_char + "'";
 
 		op += *cur_char;
@@ -429,13 +431,13 @@ private:
 		scan_expr_generic (op1, op2, op3, op4, op1f, op2f, op3f, op4f, lower);
 
 		if (op == op1)
-			stack_push (op1f ());
+			op1f ();
 		else
-			stack_push (op2f ());
+			op2f ();
 
 	}
 
-	void scan_expr_generic (std::string op1, std::string op2, std::string op3, std::string op4, std::function<long long (void)> op1f, std::function<long long (void)> op2f, std::function<long long (void)> op3f, std::function<long long (void)> op4f, void(Calculator::* lower)())
+	void scan_expr_generic (std::string op1, std::string op2, std::string op3, std::string op4, std::function<void (void)> op1f, std::function<void (void)> op2f, std::function<void (void)> op3f, std::function<void (void)> op4f, void(Calc::* lower)())
 	{
 		(this->*lower) ();
 
@@ -461,16 +463,16 @@ private:
 		scan_expr_generic (op1, op2, op3, op4, op1f, op2f, op3f, op4f, lower);
 
 		if (op == op1)
-			stack_push (op1f ());
+			op1f ();
 		else if (op == op2)
-			stack_push (op2f ());
+			op2f ();
 		else if (op == op3)
-			stack_push (op3f ());
+			op3f ();
 		else
-			stack_push (op4f ());
+			op4f ();
 	}
 
-	void scan_expr_generic (std::string op1, std::string op2, std::string op3, std::function<long long (void)> op1f, std::function<long long (void)> op2f, std::function<long long (void)> op3f, void(Calculator::* lower)())
+	void scan_expr_generic (std::string op1, std::string op2, std::string op3, std::function<void (void)> op1f, std::function<void (void)> op2f, std::function<void (void)> op3f, void(Calc::* lower)())
 	{
 		(this->*lower) ();
 
@@ -496,14 +498,14 @@ private:
 		scan_expr_generic (op1, op2, op3, op1f, op2f, op3f, lower);
 
 		if (op == op1)
-			stack_push (op1f ());
+			op1f ();
 		else if (op == op2)
-			stack_push (op2f ());
+			op2f ();
 		else
-			stack_push (op3f ());
+			op3f ();
 	}
 
-	void scan_expr_generic (std::string op1, std::string op2, std::function<long long (void)> op1f, std::function<long long (void)> op2f, void(Calculator::* lower)())
+	void scan_expr_generic (std::string op1, std::string op2, std::function<void (void)> op1f, std::function<void (void)> op2f, void(Calc::* lower)())
 	{
 		(this->*lower) ();
 
@@ -529,9 +531,9 @@ private:
 		scan_expr_generic (op1, op2, op1f, op2f, lower);
 
 		if (op == op1)
-			stack_push (op1f ());
+			op1f ();
 		else
-			stack_push (op2f ());
+			op2f ();
 	}
 
 #pragma endregion Generic
@@ -539,69 +541,62 @@ private:
 	void scan_expr_mul_div ()
 	{
 		scan_expr_generic ('*', '/', '%',
-			[&]() { return stack_pop () * stack_pop (); },
-			[&]() {
+			[=]() { stack_push (stack_pop () * stack_pop ()); },
+			[=]() {
 				auto b = stack_pop ();
 				auto a = stack_pop ();
-				return a / b;
+				stack_push (a / b);
 			},
-			[&]() {
+			[=]() {
 				auto b = stack_pop ();
 				auto a = stack_pop ();
-				return a % b;
+				stack_push (a % b);
 			}
-			, &Calculator::scan_atom);
+			, & Calc::scan_atom);
 	}
 
 	void scan_expr_add_sub ()
 	{
 		scan_expr_generic ('+', '-',
-			[&]() { return stack_pop () + stack_pop (); },
-			[&]() {
+			[=]() { stack_push (stack_pop () + stack_pop ()); },
+			[=]() {
 				auto b = stack_pop ();
 				auto a = stack_pop ();
-				return a - b;
-			}, &Calculator::scan_expr_mul_div);
+				stack_push (a - b);
+			}, & Calc::scan_expr_mul_div);
 	}
 
 	void scan_expr_relational ()
 	{
 		scan_expr_generic ("<=", ">=", '<', '>',
-			[&]() {
+			[=]() {
 				auto b = stack_pop ();
 				auto a = stack_pop ();
-				return a <= b;
+				stack_push (a <= b);
 			},
-			[&]() {
+			[=]() {
 				auto b = stack_pop ();
 				auto a = stack_pop ();
-				return a >= b;
+				stack_push (a >= b);
 			},
-				[&]() {
+				[=]() {
 				auto b = stack_pop ();
 				auto a = stack_pop ();
-				return a < b;
+				stack_push (a < b);
 			},
-				[&]() {
+				[=]() {
 				auto b = stack_pop ();
 				auto a = stack_pop ();
-				return a > b;
-			}, &Calculator::scan_expr_add_sub);
+				stack_push (a > b);
+			}, & Calc::scan_expr_add_sub);
 	}
 
 	void scan_expr_equality ()
 	{
 		scan_expr_generic ("==", "!=",
-			[&]() {
-				auto b = stack_pop ();
-				auto a = stack_pop ();
-				return a == b;
-			},
-			[&]() {
-				auto b = stack_pop ();
-				auto a = stack_pop ();
-				return a != b;
-			}, &Calculator::scan_expr_relational);
+			[=]() { stack_push (stack_pop () == stack_pop ()); },
+			[=]() { stack_push (stack_pop () != stack_pop ()); },
+			& Calc::scan_expr_relational);
 	}
 
 	void scan_expr ()
@@ -672,7 +667,7 @@ private:
 					scan_stmt ();
 
 					if (return_from_function)
-						return; 
+						return;
 
 					remove_whitespace ();
 					EXPECT_CHAR ('}');
@@ -731,7 +726,7 @@ private:
 
 				auto ident = collect_identifier ();
 				stack_push ((long long)cur_char);
-				variable_map[ident] = std::make_pair(stack.size () - 1, type::func_ptr);
+				variable_map[ident] = std::make_pair (stack.size () - 1, type::func_ptr);
 
 				collect_body ();
 			}
@@ -745,7 +740,7 @@ private:
 				if (variable_map[ident].second != type::num)
 					throw std::string ("Attempted to reassign value with expr of invalid type");
 
-				variable_map[ident] = std::make_pair(stack.size () - 1, type::num);
+				variable_map[ident] = std::make_pair (stack.size () - 1, type::num);
 #ifdef _DEBUG
 				std::cout << "[var decl '" << ident << "']" << std::endl;
 #endif

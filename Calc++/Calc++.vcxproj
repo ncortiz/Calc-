@@ -158,7 +158,9 @@
     <ClCompile Include="Calc++.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Calculator.h" />
+    <ClInclude Include="Calc.h" />
+    <ClInclude Include="Compiler.h" />
+    <ClInclude Include="CodeGen.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
