@@ -21,8 +21,8 @@ private:
 	size_t sz_stack = 1000;
 	size_t ln = 0, col = 0;
 	size_t stack_ptr = 0;
-	//std::vector<long long> stack;
-	bool return_from_function = false;
+	bool emission_disabled = false;
+
 
 	std::vector<uint64_t> compiled_program;
 
@@ -38,7 +38,6 @@ private:
 		func
 	};
 
-	scope current_scope = scope::global;
 	std::map<std::string, std::pair<size_t, type>> variable_map;
 	std::chrono::steady_clock::time_point begin;
 
@@ -50,7 +49,6 @@ public:
 
 	void Clear ()
 	{
-		current_scope = scope::global;
 		ln = col = 0;
 		stack_ptr = 0;
 		variable_map.clear ();
@@ -84,6 +82,11 @@ public:
 		}
 	}
 
+	std::vector<uint64_t>& get_program ()
+	{
+		return compiled_program;
+	}
+
 private:
 
 	std::string get_location ()
@@ -114,12 +117,17 @@ private:
 
 	void emit_instruction (OpCode opcode, unsigned long long imm=0)
 	{
-		if(opcode == OpCode::push)
-			std::cout << to_string (opcode) << " " << imm << std::endl;
-		else
-			std::cout << to_string(opcode) << std::endl;
+		if (!emission_disabled)
+		{
+			if (opcode == OpCode::push)
+				std::cout << compiled_program.size() << ": " << to_string (opcode) << " " << imm << std::endl;
+			else
+				std::cout << compiled_program.size() << ": " << to_string (opcode) << std::endl;
+			//std::cout << "Stack ptr: " << stack_ptr << std::endl;
+		}
 
 		compiled_program.push_back (gen_instr(opcode, imm));
+
 	}
 
 	void stack_push ()
@@ -266,7 +274,7 @@ private:
 				if (search->second.second != type::num)
 					throw std::string ("Invalid use of variable of type function ptr");
 
-				emit_instruction (OpCode::push, search->second.first);
+				emit_instruction (OpCode::push, (stack_ptr) - search->second.first);
 				emit_instruction (OpCode::dup);
 				stack_push ();
 			}
@@ -287,11 +295,12 @@ private:
 
 	void clean_scope ()
 	{
+		/*return;
 		while (stack_ptr > 0)
 		{
 			stack_pop ();
 			emit_instruction (OpCode::pop);
-		}
+		}*/
 	}
 
 #pragma region Generic
@@ -564,6 +573,7 @@ private:
 				stack_push ();  
 			},
 			[=]() {
+				emit_instruction (OpCode::swapt);
 				stack_pop ();
 				stack_pop ();
 				emit_instruction (OpCode::sub);
@@ -651,8 +661,6 @@ private:
 				std::cout << "[out]" << std::endl;
 #endif
 
-				if (current_scope != scope::func)
-					throw std::string ("Must be in function scope to return");
 
 				remove_whitespace ();
 				scan_expr ();
@@ -660,7 +668,7 @@ private:
 				stack_pop ();
 				//emit_instruction (OpCode::ret);
 
-				return_from_function = true;
+				//return_from_function = true;
 				return;
 			}
 			else if (ident_upper == "PRINT")
@@ -672,6 +680,8 @@ private:
 				scan_expr ();
 				stack_pop ();
 				emit_instruction (OpCode::outnum);
+				emit_instruction (OpCode::push, '\n');
+				emit_instruction (OpCode::out);
 			}
 			else if (ident_upper == "IF")
 			{
@@ -681,20 +691,16 @@ private:
 				remove_whitespace ();
 
 				scan_expr ();
-				stack_pop (); //cond
 
 				emit_instruction (OpCode::push, 0);
 				stack_push ();
 				emit_instruction (OpCode::cmp);
+				stack_pop (); //cond
 				stack_pop ();
 
-				auto prev_scope = stack_ptr;
-
-				emit_instruction (OpCode::push, compiled_program.size ()); //TODO JUMP past if false OR 
-				//WE NEED TO figure out where is past in order to jump past.!!!!
-				stack_push ();
-				emit_instruction (OpCode::je);
-				stack_pop ();
+				auto buff1 = compiled_program;
+				auto start = cur_char;
+				emission_disabled = true;
 
 				remove_whitespace ();
 				EXPECT_CHAR ('{');
@@ -704,23 +710,47 @@ private:
 				remove_whitespace ();
 				EXPECT_CHAR ('}');
 
-				while (compiled_program.size () > stack_ptr)
-				{
-					stack_pop ();
-					emit_instruction (OpCode::pop);
-				}
+				auto end_ptr = compiled_program.size ()+2; //two for push and je
+				compiled_program = buff1;
+				emission_disabled = false;
 
+				emit_instruction (OpCode::push, end_ptr);
+				stack_push ();
+				emit_instruction (OpCode::je);
+				stack_pop ();
+
+				cur_char = start;
+
+				remove_whitespace ();
+				EXPECT_CHAR ('{');
+
+				scan_stmt ();
+
+				remove_whitespace ();
+				EXPECT_CHAR ('}');
+
+				emit_instruction (OpCode::nop);
 			}
 			else if (ident_upper == "WHILE")
 			{
 #ifdef _DEBUG        
 				std::cout << "[while]" << std::endl;
 #endif
-				auto start = cur_char;
-
 				remove_whitespace ();
+
+				auto start_ptr = compiled_program.size ();
+
 				scan_expr ();
+
+				emit_instruction (OpCode::push, 0);
+				stack_push ();
+				emit_instruction (OpCode::cmp);
 				stack_pop (); //cond
+				stack_pop ();
+
+				auto buff1 = compiled_program;
+				auto start = cur_char;
+				emission_disabled = true;
 
 				remove_whitespace ();
 				EXPECT_CHAR ('{');
@@ -729,6 +759,31 @@ private:
 
 				remove_whitespace ();
 				EXPECT_CHAR ('}');
+
+				auto end_ptr = compiled_program.size () + 2 + 2; //two for push and je and two for end
+				compiled_program = buff1;
+				emission_disabled = false;
+
+				emit_instruction (OpCode::push, end_ptr);
+				stack_push ();
+				emit_instruction (OpCode::je);
+				stack_pop ();
+
+				cur_char = start;
+
+				remove_whitespace ();
+				EXPECT_CHAR ('{');
+
+				scan_stmt ();
+
+				remove_whitespace ();
+				EXPECT_CHAR ('}');
+
+				emit_instruction (OpCode::push, start_ptr);
+				stack_push ();
+				emit_instruction (OpCode::jmp);
+				stack_pop ();
+				emit_instruction (OpCode::nop);
 			}
 			else if (ident_upper == "DEF")
 			{
@@ -758,13 +813,13 @@ private:
 				remove_whitespace ();
 				scan_expr ();
 
+				stack_push ();
+
 				if (variable_map[ident].second != type::num)
 					throw std::string ("Attempted to reassign value with expr of invalid type");
 
 				stack_pop ();
-				variable_map[ident] = std::make_pair (stack_ptr+0, type::num);
-
-				stack_push ();
+				variable_map[ident] = std::make_pair (stack_ptr, type::num);
 #ifdef _DEBUG
 				std::cout << "[var decl '" << ident << "']" << std::endl;
 #endif

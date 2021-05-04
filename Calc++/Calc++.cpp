@@ -29,6 +29,9 @@ int Execute (std::string &program)
         return -1;
     }
 
+    auto compiled = calc.get_program ();
+    write (&compiled[0], compiled.size (), "test.nvm");
+
     return 0;
 }
 
@@ -60,10 +63,12 @@ int Run (int argc, char **argv)
 int main(int argc, char **argv)
 {
     //std::string program = "x = 25; while (x + 1) >= 0 { if (x % 2) == 1 { print x; }; x = x - 1; }; out time / 1000;";
-    std::string program = "x = 25; y = 5 * x; out y + x;";
-
+    std::string program = "x = 22; while (x) {print x; x = x - 1; };";
 
     auto rv = Execute (program);
+
+
+
     //Run (argc, argv);
 
     std::cout << "Press any key to exit..." << std::endl;

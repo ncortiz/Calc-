@@ -10,6 +10,7 @@
 
 static enum OpCode
 {
+	nop,
 	stop,
 	push,
 	pop,
@@ -45,6 +46,8 @@ std::string to_string (OpCode opcode)
 {
 	switch (opcode)
 	{
+	case nop:
+		return "nop";
 	case stop:
 		return "stop";
 	case push:
