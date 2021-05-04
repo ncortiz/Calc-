@@ -31,6 +31,7 @@ int Execute (std::string &program)
 
     auto compiled = calc.get_program ();
     write (&compiled[0], compiled.size (), "test.nvm");
+    system ("test.nvm");
 
     return 0;
 }
