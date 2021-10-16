@@ -5,6 +5,9 @@ Simple turing complete interpreted programming language
 Code is simply for demonstration, not finished. First version worked by interpreting text, new one will work from compiled bytecode (VM). Not finished yet, haven't worked on it for a while so might not work. I've added a somewhat restrictive license to make sure people are able to see the code but won't use it for any applications, just educational - I guess.
 
 <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-nd/3.0/88x31.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-nd/3.0/">Creative Commons Attribution-NonCommercial-NoDerivs 3.0 Unported License</a>.
+
+© 2020 Nicolas Ortiz
+
 Written in C++
 
 Current features:
