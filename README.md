@@ -1,5 +1,7 @@
 # Calc++
 
+##UNFINISHED JUST FOR EXAMPLE
+
 Simple turing complete interpreted programming language
 
 Code is simply for demonstration, not finished. First version worked by interpreting text, new one will work from compiled bytecode (VM). Not finished yet, haven't worked on it for a while so might not work. I've added a somewhat restrictive license to make sure people are able to see the code but won't use it for any applications, just educational - I guess.
