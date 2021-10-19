@@ -1,6 +1,6 @@
 # Calc++
 
-##UNFINISHED JUST FOR EXAMPLE
+## UNFINISHED JUST FOR EXAMPLE
 
 Simple turing complete interpreted programming language
 
