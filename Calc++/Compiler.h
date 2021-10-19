@@ -538,7 +538,7 @@ private:
 	}
 
 #pragma endregion Generic
-
+	//NOTE: UNFINISHED EVERYTHING DOES MULTIPLICATION FOR NOW
 	void scan_expr_mul_div ()
 	{
 		scan_expr_generic ('*', '/', '%',
